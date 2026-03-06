@@ -52,7 +52,22 @@ function createChair() {
 }
 
 function createBox() {
-  return new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), makeMaterial(0x8a6b4f));
+  const group = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), makeMaterial(0x8a6b4f));
+  box.castShadow = true;
+  box.receiveShadow = true;
+  group.add(box);
+
+  const strapMat = makeMaterial(0x2a2a2a);
+  const strapA = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.06, 0.14), strapMat);
+  strapA.position.y = 0.16;
+  group.add(strapA);
+  const strapB = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 1.22), strapMat);
+  strapB.position.y = -0.22;
+  group.add(strapB);
+
+  group.position.y = 0.6;
+  return group;
 }
 
 function createPlant() {
@@ -68,15 +83,33 @@ function createPlant() {
 
 function createComputer() {
   const group = new THREE.Group();
-  const desk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.8), makeMaterial(0x4d515a));
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 0.9), makeMaterial(0x3f444d));
   desk.position.y = 0.75;
   group.add(desk);
-  const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.08), makeMaterial(0x1d232c));
+  const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.54, 0.08), makeMaterial(0x1d232c));
   monitor.position.set(0, 1.12, -0.25);
   group.add(monitor);
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.78, 0.44),
+    new THREE.MeshStandardMaterial({
+      color: 0x0b1420,
+      emissive: new THREE.Color(0x1f6bff),
+      emissiveIntensity: 0.35,
+      roughness: 0.7,
+      metalness: 0
+    })
+  );
+  screen.position.set(0, 1.12, -0.21);
+  group.add(screen);
   const stand = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.25, 0.12), makeMaterial(0x2a303a));
   stand.position.set(0, 0.92, -0.25);
   group.add(stand);
+
+  const keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.05, 0.24), makeMaterial(0x2a303a));
+  keyboard.position.set(0, 0.82, 0.08);
+  group.add(keyboard);
+
+  group.position.y = 0;
   return group;
 }
 
@@ -92,6 +125,18 @@ function createLamp() {
   shade.position.y = 1.35;
   shade.rotation.x = Math.PI;
   group.add(shade);
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 10, 10),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: new THREE.Color(0xfff3c7),
+      emissiveIntensity: 0.8,
+      roughness: 0.4,
+      metalness: 0
+    })
+  );
+  bulb.position.set(0, 1.18, 0);
+  group.add(bulb);
   return group;
 }
 
@@ -128,4 +173,3 @@ export function createPossessables(scene) {
 
   return { meshesById, interactables };
 }
-

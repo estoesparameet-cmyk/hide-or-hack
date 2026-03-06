@@ -69,6 +69,88 @@ export class GameManager {
     this._pendingStart = null;
   }
 
+  _isHackerId(id) {
+    return Boolean(id) && id === this.hackerId;
+  }
+
+  _publicPlayersFor(viewerId) {
+    const all = this.players.list().map((p) => this._publicPlayer(p));
+    if (this.state !== "running") return all;
+    if (this._isHackerId(viewerId)) return all;
+    if (!this.hackerId) return all;
+    return all.filter((p) => p.id !== this.hackerId);
+  }
+
+  _serializeObjectForViewer(o, viewerId) {
+    const base = serializeObject(o);
+    if (this.state !== "running") return base;
+    if (this._isHackerId(viewerId)) return base;
+    return { ...base, possessedBy: null };
+  }
+
+  _emitWelcome(socket, player) {
+    socket.emit("welcome", {
+      id: player.id,
+      state: this.state,
+      players: this._publicPlayersFor(socket.id),
+      objects: [...this.objects.values()].map((o) => this._serializeObjectForViewer(o, socket.id)),
+      timeLeftSeconds: this._timeLeftSeconds(),
+      maxPlayers: MAX_PLAYERS
+    });
+  }
+
+  _emitGameStateTo(playerId) {
+    this.io.to(playerId).emit("gameState", {
+      state: this.state,
+      startedAtMs: this.startedAtMs,
+      endsAtMs: this.endsAtMs,
+      players: this._publicPlayersFor(playerId),
+      objects: [...this.objects.values()].map((o) => this._serializeObjectForViewer(o, playerId))
+    });
+  }
+
+  _broadcastGameState() {
+    for (const p of this.players.list()) this._emitGameStateTo(p.id);
+  }
+
+  _broadcastObjectUpdated(o) {
+    for (const p of this.players.list()) {
+      this.io.to(p.id).emit("objectUpdated", this._serializeObjectForViewer(o, p.id));
+    }
+  }
+
+  _broadcastPlayerJoined(joinedPlayer) {
+    const payload = this._publicPlayer(joinedPlayer);
+    for (const p of this.players.list()) {
+      if (p.id === joinedPlayer.id) continue;
+      if (this.state === "running" && joinedPlayer.id === this.hackerId && p.id !== this.hackerId) continue;
+      this.io.to(p.id).emit("playerJoined", payload);
+    }
+  }
+
+  _broadcastPlayerLeft(leftPlayerId) {
+    for (const p of this.players.list()) {
+      if (p.id === leftPlayerId) continue;
+      this.io.to(p.id).emit("playerLeft", { id: leftPlayerId });
+    }
+  }
+
+  _broadcastPlayerMoved(movedPlayer) {
+    const payload = {
+      id: movedPlayer.id,
+      transform: movedPlayer.transform,
+      sprinting: movedPlayer.sprinting,
+      flashlightOn: movedPlayer.flashlightOn,
+      revealed: movedPlayer.revealed
+    };
+
+    for (const p of this.players.list()) {
+      if (p.id === movedPlayer.id) continue;
+      if (this.state === "running" && movedPlayer.id === this.hackerId && p.id !== this.hackerId) continue;
+      this.io.to(p.id).emit("playerMoved", payload);
+    }
+  }
+
   attachSocket(socket) {
     const player = createPlayer({ id: socket.id });
     if (!this.players.add(player)) {
@@ -77,23 +159,15 @@ export class GameManager {
       return;
     }
 
-    socket.emit("welcome", {
-      id: player.id,
-      state: this.state,
-      players: this.players.list().map((p) => this._publicPlayer(p)),
-      objects: [...this.objects.values()].map(serializeObject),
-      timeLeftSeconds: this._timeLeftSeconds(),
-      maxPlayers: MAX_PLAYERS
-    });
-
-    socket.broadcast.emit("playerJoined", this._publicPlayer(player));
+    this._emitWelcome(socket, player);
+    this._broadcastPlayerJoined(player);
 
     socket.on("disconnect", () => {
       const removed = this.players.remove(socket.id);
       if (!removed) return;
 
       this._releasePossessionByPlayer(removed.id);
-      this.io.emit("playerLeft", { id: removed.id });
+      this._broadcastPlayerLeft(removed.id);
 
       if (this.state === "running" && removed.id === this.hackerId) {
         this._endGame({ winner: "agents", reason: "hackerDisconnected" });
@@ -130,13 +204,7 @@ export class GameManager {
         }
       }
 
-      socket.broadcast.emit("playerMoved", {
-        id: p.id,
-        transform: p.transform,
-        sprinting: p.sprinting,
-        flashlightOn: p.flashlightOn,
-        revealed: p.revealed
-      });
+      this._broadcastPlayerMoved(p);
     });
 
     socket.on("scan", () => {
@@ -171,8 +239,8 @@ export class GameManager {
       o.possessedBy = p.id;
       p.possessingObjectId = o.id;
 
-      this.io.emit("objectUpdated", serializeObject(o));
-      this.io.emit("playerState", { id: p.id, possessingObjectId: p.possessingObjectId });
+      this._broadcastObjectUpdated(o);
+      this.io.to(p.id).emit("playerState", { id: p.id, possessingObjectId: p.possessingObjectId });
     });
 
     socket.on("release", () => {
@@ -198,7 +266,7 @@ export class GameManager {
       o.x = clamp(o.x + dx, MAP_BOUNDS.minX + 1, MAP_BOUNDS.maxX - 1);
       o.z = clamp(o.z + dz, MAP_BOUNDS.minZ + 1, MAP_BOUNDS.maxZ - 1);
 
-      this.io.emit("objectUpdated", serializeObject(o));
+      this._broadcastObjectUpdated(o);
     });
 
     socket.on("shoot", (payload) => {
@@ -291,13 +359,7 @@ export class GameManager {
     }
     for (const o of this.objects.values()) o.possessedBy = null;
 
-    this.io.emit("gameState", {
-      state: this.state,
-      startedAtMs: this.startedAtMs,
-      endsAtMs: this.endsAtMs,
-      players: this.players.list().map((p) => this._publicPlayer(p)),
-      objects: [...this.objects.values()].map(serializeObject)
-    });
+    this._broadcastGameState();
 
     for (const p of this.players.list()) {
       this.io.to(p.id).emit("role", { role: p.role });
@@ -329,13 +391,7 @@ export class GameManager {
         this.startedAtMs = null;
         this.endsAtMs = null;
         this.hackerId = null;
-        this.io.emit("gameState", {
-          state: this.state,
-          startedAtMs: null,
-          endsAtMs: null,
-          players: this.players.list().map((p) => this._publicPlayer(p)),
-          objects: [...this.objects.values()].map(serializeObject)
-        });
+        this._broadcastGameState();
         return;
       }
 
@@ -343,13 +399,7 @@ export class GameManager {
       this.startedAtMs = null;
       this.endsAtMs = null;
       this.hackerId = null;
-      this.io.emit("gameState", {
-        state: this.state,
-        startedAtMs: null,
-        endsAtMs: null,
-        players: this.players.list().map((p) => this._publicPlayer(p)),
-        objects: [...this.objects.values()].map(serializeObject)
-      });
+      this._broadcastGameState();
       this._maybeAutoStart();
     }, 8000);
   }
@@ -363,9 +413,9 @@ export class GameManager {
     const o = this.objects.get(objectId);
     if (o && o.possessedBy === playerId) {
       o.possessedBy = null;
-      this.io.emit("objectUpdated", serializeObject(o));
+      this._broadcastObjectUpdated(o);
     }
     p.possessingObjectId = null;
-    this.io.emit("playerState", { id: p.id, possessingObjectId: null });
+    this.io.to(p.id).emit("playerState", { id: p.id, possessingObjectId: null });
   }
 }

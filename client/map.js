@@ -16,6 +16,11 @@ export function createMap(scene) {
   floor.receiveShadow = true;
   group.add(floor);
 
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(40, 0.18, 40), makeMaterial(0x121923));
+  ceiling.position.y = 3.95;
+  ceiling.receiveShadow = true;
+  group.add(ceiling);
+
   const wallMat = makeMaterial(0x2c3a4a);
   const wallThickness = 0.6;
   const wallHeight = 4;
@@ -62,6 +67,91 @@ export function createMap(scene) {
   deskArea.receiveShadow = true;
   group.add(deskArea);
 
+  const deskTopMat = makeMaterial(0x2b313a);
+  const deskLegMat = makeMaterial(0x151b22);
+  function addDesk(x, z, w = 2.4, d = 1.1) {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), deskTopMat);
+    top.position.set(x, 0.78, z);
+    top.castShadow = true;
+    top.receiveShadow = true;
+    group.add(top);
+
+    const legGeo = new THREE.BoxGeometry(0.12, 0.78, 0.12);
+    const ox = w / 2 - 0.16;
+    const oz = d / 2 - 0.16;
+    for (const [lx, lz] of [
+      [-ox, -oz],
+      [ox, -oz],
+      [-ox, oz],
+      [ox, oz]
+    ]) {
+      const leg = new THREE.Mesh(legGeo, deskLegMat);
+      leg.position.set(x + lx, 0.39, z + lz);
+      leg.castShadow = true;
+      leg.receiveShadow = true;
+      group.add(leg);
+    }
+  }
+
+  addDesk(-5, -12);
+  addDesk(0, -12);
+  addDesk(5, -12);
+  addDesk(-5, -9.6);
+  addDesk(0, -9.6);
+  addDesk(5, -9.6);
+
+  const trimMat = makeMaterial(0x202a36);
+  const trimN = new THREE.Mesh(new THREE.BoxGeometry(wallLen, 0.18, 0.35), trimMat);
+  trimN.position.set(0, 0.09, -19.85);
+  group.add(trimN);
+  const trimS = new THREE.Mesh(new THREE.BoxGeometry(wallLen, 0.18, 0.35), trimMat);
+  trimS.position.set(0, 0.09, 19.85);
+  group.add(trimS);
+  const trimW = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, wallLen), trimMat);
+  trimW.position.set(-19.85, 0.09, 0);
+  group.add(trimW);
+  const trimE = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, wallLen), trimMat);
+  trimE.position.set(19.85, 0.09, 0);
+  group.add(trimE);
+
+  const pillarMat = makeMaterial(0x243242);
+  const pillarGeo = new THREE.BoxGeometry(0.9, 4.1, 0.9);
+  const pillarPos = [
+    [-14, 1.95, -14],
+    [14, 1.95, -14],
+    [-14, 1.95, 14],
+    [14, 1.95, 14]
+  ];
+  for (const [x, y, z] of pillarPos) {
+    const p = new THREE.Mesh(pillarGeo, pillarMat);
+    p.position.set(x, y, z);
+    p.castShadow = true;
+    p.receiveShadow = true;
+    group.add(p);
+  }
+
+  const panelMat = new THREE.MeshStandardMaterial({
+    color: 0xdfe8f3,
+    roughness: 0.6,
+    metalness: 0,
+    emissive: new THREE.Color(0xa8cfff),
+    emissiveIntensity: 0.9
+  });
+  const panelGeo = new THREE.BoxGeometry(4.2, 0.08, 1.3);
+  const panelPos = [
+    [-10, 3.78, -10],
+    [10, 3.78, -10],
+    [-10, 3.78, 10],
+    [10, 3.78, 10],
+    [0, 3.78, 0]
+  ];
+  for (const [x, y, z] of panelPos) {
+    const panel = new THREE.Mesh(panelGeo, panelMat);
+    panel.position.set(x, y, z);
+    panel.castShadow = false;
+    group.add(panel);
+  }
+
   scene.add(group);
 
   const ambient = new THREE.AmbientLight(0xb6c4d6, 0.35);
@@ -79,11 +169,11 @@ export function createMap(scene) {
   overhead.shadow.camera.bottom = -24;
   scene.add(overhead);
 
-  const pointA = new THREE.PointLight(0xaed7ff, 0.7, 20, 2);
+  const pointA = new THREE.PointLight(0xaed7ff, 0.95, 24, 2);
   pointA.position.set(-10, 3.2, 10);
   scene.add(pointA);
 
-  const pointB = new THREE.PointLight(0xffe6b0, 0.65, 20, 2);
+  const pointB = new THREE.PointLight(0xffe6b0, 0.85, 24, 2);
   pointB.position.set(10, 3.2, -10);
   scene.add(pointB);
 
@@ -92,4 +182,3 @@ export function createMap(scene) {
     lights: { ambient, overhead, pointA, pointB }
   };
 }
-

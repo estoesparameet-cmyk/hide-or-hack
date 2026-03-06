@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { createMap } from "./map.js";
 import { createPossessables } from "./objects.js";
-import { LocalPlayer, createRemoteAvatar, setAvatarRevealed } from "./player.js";
+import { LocalPlayer, createRemoteAvatar, setAvatarRevealed, updateAvatarAnimation } from "./player.js";
 import { UI } from "./ui.js";
 
 const MAP_BOUNDS = { minX: -18, maxX: 18, minZ: -18, maxZ: 18 };
@@ -42,6 +42,9 @@ camera.rotation.order = "YXZ";
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -173,6 +176,9 @@ function applySnapshot({ players, objects }) {
     avatar.position.set(p.transform.x, 0, p.transform.z);
     avatar.rotation.y = p.transform.yaw;
     setAvatarRevealed(avatar, p.revealed);
+    avatar.userData._lastPos.copy(avatar.position);
+    avatar.userData._lastAt = performance.now();
+    avatar.userData.moveSpeed = 0;
   }
 
   for (const o of objects) {
@@ -230,6 +236,9 @@ if (socket) {
     const avatar = ensureRemoteAvatar(p.id);
     avatar.position.set(p.transform.x, 0, p.transform.z);
     avatar.rotation.y = p.transform.yaw;
+    avatar.userData._lastPos.copy(avatar.position);
+    avatar.userData._lastAt = performance.now();
+    avatar.userData.moveSpeed = 0;
   });
 
   socket.on("playerLeft", (payload) => {
@@ -243,7 +252,16 @@ if (socket) {
     const avatar = ensureRemoteAvatar(id);
     const t = payload?.transform;
     if (!t) return;
-    avatar.position.set(t.x, 0, t.z);
+    const now = performance.now();
+    const prev = avatar.userData._lastPos ?? avatar.position.clone();
+    const next = new THREE.Vector3(t.x, 0, t.z);
+    const dt = Math.max(0.016, (now - (avatar.userData._lastAt ?? now)) / 1000);
+    const speed = next.distanceTo(prev) / dt;
+    avatar.userData.moveSpeed = speed;
+    avatar.userData._lastPos = next.clone();
+    avatar.userData._lastAt = now;
+
+    avatar.position.copy(next);
     avatar.rotation.y = t.yaw ?? 0;
     setAvatarRevealed(avatar, Boolean(payload?.revealed));
   });
@@ -298,6 +316,7 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, clock.getDelta());
+  const t = clock.elapsedTime;
 
   const isPossessing = state.role === "hacker" && Boolean(state.possessingObjectId);
   if (isPossessing) {
@@ -343,8 +362,11 @@ function animate() {
     lights.pointB.intensity = 0.65;
   }
 
+  for (const avatar of remoteAvatars.values()) {
+    updateAvatarAnimation(avatar, t);
+  }
+
   renderer.render(scene, camera);
 }
 
 animate();
-
