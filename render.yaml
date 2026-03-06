@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: hide-or-hack
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start
+    healthCheckPath: /healthz
+

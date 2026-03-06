@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hide or Hack</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0b0f14;
+        color: #e8eef7;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        overflow: hidden;
+      }
+      #hud {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      #topbar {
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(10, 14, 20, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        backdrop-filter: blur(8px);
+      }
+      #title {
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+      #role {
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      #timer {
+        font-variant-numeric: tabular-nums;
+        opacity: 0.9;
+      }
+      #hint {
+        position: absolute;
+        bottom: 14px;
+        left: 14px;
+        max-width: 520px;
+        padding: 10px 12px;
+        background: rgba(10, 14, 20, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        backdrop-filter: blur(8px);
+        font-size: 13px;
+        line-height: 1.35;
+        opacity: 0.95;
+      }
+      #center {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: min(560px, calc(100vw - 40px));
+      }
+      #centerCard {
+        pointer-events: auto;
+        padding: 16px 18px;
+        background: rgba(10, 14, 20, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+      }
+      #primary {
+        display: inline-flex;
+        gap: 10px;
+        align-items: baseline;
+        font-weight: 650;
+      }
+      #secondary {
+        margin-top: 10px;
+        opacity: 0.85;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      #crosshair {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 10px;
+        height: 10px;
+        opacity: 0.7;
+      }
+      #crosshair:before,
+      #crosshair:after {
+        content: "";
+        position: absolute;
+        background: rgba(232, 238, 247, 0.75);
+      }
+      #crosshair:before {
+        left: 50%;
+        top: 0;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 10px;
+      }
+      #crosshair:after {
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 10px;
+        height: 2px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">
+      <div id="topbar">
+        <div id="title">Hide or Hack</div>
+        <div id="role">Connecting…</div>
+        <div id="timer"></div>
+      </div>
+      <div id="crosshair"></div>
+      <div id="hint"></div>
+      <div id="center">
+        <div id="centerCard">
+          <div id="primary">
+            <div>Click to play</div>
+            <div style="opacity: 0.75; font-weight: 500">Pointer Lock</div>
+          </div>
+          <div id="secondary">
+            WASD move · Shift sprint · LMB shoot · F flashlight · E scanner · Q possess
+            · R release · X event
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
+
